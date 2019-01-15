@@ -113,6 +113,7 @@ Calibration6DoF calibration(bool doRefinement = false)
 void callback(const sensor_msgs::ImageConstPtr& msg_img, const sensor_msgs::CameraInfoConstPtr& msg_info,
               const sensor_msgs::PointCloud2ConstPtr& msg_pc)
 {
+  cout << "debug: callback() begin" << endl;
 
   ROS_INFO_STREAM("Image received at " << msg_img->header.stamp.toSec());
   ROS_INFO_STREAM( "Camera info received at " << msg_info->header.stamp.toSec());
@@ -157,6 +158,7 @@ void callback(const sensor_msgs::ImageConstPtr& msg_img, const sensor_msgs::Came
 
 int main(int argc, char** argv)
 {
+  cout << "debug: call ros::init()" << endl;
   ros::init(argc, argv, "calibration_node");
 
   int c;
@@ -168,10 +170,12 @@ int main(int argc, char** argv)
         doRefinement = true;
         break;
       default:
+        cout << "debug: callback() end" << "[" << __func__ << ", " << __LINE__ << "]" << endl;
         return EXIT_FAILURE;
     }
   }
 
+  cout << "debug: call n.getParam()" << endl;
   ros::NodeHandle n;
   n.getParam("/but_calibration_camera_velodyne/camera_frame_topic", CAMERA_FRAME_TOPIC);
   n.getParam("/but_calibration_camera_velodyne/camera_info_topic", CAMERA_INFO_TOPIC);
@@ -179,15 +183,28 @@ int main(int argc, char** argv)
   n.getParam("/but_calibration_camera_velodyne/marker/circles_distance", STRAIGHT_DISTANCE);
   n.getParam("/but_calibration_camera_velodyne/marker/circles_radius", RADIUS);
 
+  cout << "camera_frame_topic: " << CAMERA_FRAME_TOPIC << endl;
+  cout << "camera_info_topic: " << CAMERA_INFO_TOPIC << endl;
+  cout << "velodyne_topic: " << VELODYNE_TOPIC << endl;
+  cout << "circles_distance: " << STRAIGHT_DISTANCE << endl;
+  cout << "circles_radius: " << RADIUS << endl;
+
+  cout << "debug: call message_filters::Subscriber<sensor_msgs::T>, T[Image, CameraInfo, PointCloud2]" << endl;
   message_filters::Subscriber<sensor_msgs::Image> image_sub(n, CAMERA_FRAME_TOPIC, 1);
   message_filters::Subscriber<sensor_msgs::CameraInfo> info_sub(n, CAMERA_INFO_TOPIC, 1);
   message_filters::Subscriber<sensor_msgs::PointCloud2> cloud_sub(n, VELODYNE_TOPIC, 1);
 
+  cout << "debug: call Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), image_sub, info_sub, cloud_sub)" << endl;
   typedef sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::PointCloud2> MySyncPolicy;
   Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), image_sub, info_sub, cloud_sub);
+  cout << "debug: call sync.registerCallback(boost::bind(&callback, _1, _2, _3))" << endl;
   sync.registerCallback(boost::bind(&callback, _1, _2, _3));
 
+  cout << "debug: call ros::spin()" << endl;
+  cout << "debug: wait for corresponding topic trigger and callback" << endl;
   ros::spin();
+
+  cout << "debug: callback() end" << "[" << __func__ << ", " << __LINE__ << "]" << endl;
 
   return EXIT_SUCCESS;
 }
