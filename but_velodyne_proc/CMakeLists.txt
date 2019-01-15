@@ -18,7 +18,7 @@ find_package(catkin
 
 find_package(PkgConfig REQUIRED)
 
-find_package( Eigen REQUIRED )
+find_package( Eigen3 REQUIRED )
 include_directories( ${EIGEN_INCLUDE_DIRS})
 
 find_package( OpenCV REQUIRED )

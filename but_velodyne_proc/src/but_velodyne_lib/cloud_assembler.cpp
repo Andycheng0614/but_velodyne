@@ -212,7 +212,7 @@ void CloudAssembler::process(const sensor_msgs::PointCloud2::ConstPtr &cloud)
   {
 
     pcl::IterativeClosestPoint< TPoint, TPoint> icp;
-    icp.setInputCloud(tpcl);
+    icp.setInputSource(tpcl);
     icp.setInputTarget(pcl_out);
     pcl::PointCloud<TPoint> aligned;
     icp.align(aligned);
