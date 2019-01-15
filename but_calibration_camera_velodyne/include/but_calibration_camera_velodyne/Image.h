@@ -11,9 +11,6 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
-namespace but_calibration_camera_velodyne
-{
-
 namespace Image
 {
 
@@ -32,8 +29,10 @@ public:
   // Inverse Distance Tranform
   cv::Mat computeIDTEdgeImage();
   cv::Mat computeIDTEdgeImage(cv::Mat &edge_img);
-  bool detect4Circles(float canny_thresh, float center_thresh, std::vector<cv::Point2f> &centers,
+  bool detect4Circles(float canny_thresh, float center_thresh,
+                      std::vector<cv::Point2f> &centers,
                       std::vector<float> &radiuses);
+
   void threshold(int threshold)
   {
     cv::threshold(img, img, threshold, 255, cv::THRESH_TOZERO);
@@ -85,10 +84,9 @@ public:
 
   // CV_32SC1 Mat with segment indexes
   cv::Mat segmentation(int segments);
-
-protected:
+public:
   cv::Mat img;
-
+protected:
   static float const gamma;
   static float const alpha;
   static cv::Mat distance_weights;
@@ -97,7 +95,5 @@ protected:
 
 } /* NAMESPACE Image*/
 ;
-
-};
 
 #endif /* IMAGE_H_ */

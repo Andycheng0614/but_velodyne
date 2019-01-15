@@ -10,9 +10,6 @@
 using namespace std;
 using namespace cv;
 
-namespace but_calibration_camera_velodyne
-{
-
 void Similarity::computeEntropies()
 {
   vector<float> histogram_X(INTENSITIES, 0);
@@ -52,11 +49,11 @@ void Similarity::computeEntropies()
   }
 
   float points_nm_pow = points_nm * points_nm;
-  for (map<pair<uchar, uchar>, float>::iterator i = joint_histogram.begin(); i != joint_histogram.end(); i++)
+  for (map<pair<uchar, uchar>, float>::iterator i = joint_histogram.begin();
+                                                i != joint_histogram.end(); i++)
   {
     p = i->second / points_nm_pow;
     H_XY = -p * log(p);
   }
 }
 
-}

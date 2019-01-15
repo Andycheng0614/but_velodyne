@@ -20,11 +20,9 @@
 
 #include <ros/assert.h>
 
-#include <but_calibration_camera_velodyne/Exceptions.h>
 #include <but_calibration_camera_velodyne/Image.h>
 #include <but_calibration_camera_velodyne/Velodyne.h>
 
-namespace but_calibration_camera_velodyne {
 
 class Similarity
 {
@@ -76,7 +74,6 @@ public:
       return NMI;
     if (s == "CC")
       return CC;
-    throw new NotImplementedException("Unknown criteria " + s);
   }
 
   float getSimilarity(Criteria crit)
@@ -92,11 +89,13 @@ public:
       default:
         std::stringstream ss;
         ss << "Similarity criteria " << crit << ".";
-        throw new NotImplementedException(ss.str());
     }
   }
 
-  float static projectionError(cv::Mat &segmentation, std::vector<Velodyne::Velodyne> &segments, cv::Mat P,
+  
+  float static projectionError(cv::Mat &segmentation, 
+                               std::vector<Velodyne::Velodyne> &segments,
+                               cv::Mat P,
                                bool verbose = false)
   {
 
@@ -107,7 +106,8 @@ public:
     {
       int fire = 0;
       int miss = 0;
-      for (::pcl::PointCloud<Velodyne::Point>::iterator pt = segments[i].begin(); pt < segments[i].end(); pt++)
+      for (pcl::PointCloud<Velodyne::Point>::iterator pt = segments[i].begin();
+			  pt < segments[i].end(); pt++)
       {
         cv::Point xy = Velodyne::Velodyne::project(*pt, P);
 
@@ -127,14 +127,17 @@ public:
       total_miss += miss;
       if (verbose)
       {
-        cout << "segment: " << i << ";\t ok: " << fire << ";\t missed: " << miss << endl;
+        cout << "segment: " << i << ";\t ok: "
+             << fire << ";\t missed: " << miss << endl;
       }
     }
 
     return total_miss / (float)(segments[0].size() + segments[1].size());
   }
 
-  float static projectionError(Image::Image img, Velodyne::Velodyne scan, cv::Mat P, bool verbose = false)
+
+  float static projectionError(Image::Image img, Velodyne::Velodyne scan, 
+                               cv::Mat P, bool verbose = false)
   {
 
     cv::Mat segmentation = img.segmentation(2);
@@ -142,11 +145,14 @@ public:
     return projectionError(segmentation, segments, P, verbose);
   }
 
-  float static edgeSimilarity(Image::Image &img, Velodyne::Velodyne &scan, cv::Mat &P)
+
+  float static edgeSimilarity(Image::Image &img, Velodyne::Velodyne &scan,
+                              cv::Mat &P)
   {
     cv::Rect frame(cv::Point(0, 0), img.size());
     float CC = 0;
-    for (::pcl::PointCloud<Velodyne::Point>::iterator pt = scan.begin(); pt < scan.end(); pt++)
+    for (pcl::PointCloud<Velodyne::Point>::iterator pt = scan.begin();
+         pt < scan.end(); pt++)
     {
       cv::Point xy = Velodyne::Velodyne::project(*pt, P);
 
@@ -157,7 +163,25 @@ public:
     }
     return CC;
   }
+  
+  float static edgeSimilarity( Image::Image &img,
+		                       pcl::PointCloud<pcl::PointXYZI> &scan,
+                               cv::Mat &P )
+  {
+    cv::Rect frame(cv::Point(0, 0), img.size());
+    float CC = 0;
+    for(pcl::PointCloud<pcl::PointXYZI>::iterator pt = scan.begin();
+         pt < scan.end(); pt++)
+    {
+      cv::Point xy = Velodyne::Velodyne::project(*pt, P);
 
+      if (pt->z > 0 && xy.inside(frame))
+      {
+        CC += img.at(xy) * pt->intensity;
+      }
+    }
+    return CC;
+  }
 protected:
   void computeEntropies();
 
@@ -168,8 +192,6 @@ protected:
   float H_XY; // joint entropy
 
   static const int INTENSITIES = 256;
-};
-
 };
 
 #endif /* SIMILARITY_H_ */

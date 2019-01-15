@@ -9,11 +9,11 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include <algorithm>
 
+#define DEBUG	1
+
+
 using namespace std;
 using namespace cv;
-
-namespace but_calibration_camera_velodyne
-{
 
 namespace Image
 {
@@ -26,7 +26,6 @@ float const Image::alpha = 0.33;
 Image::Image(cv::Mat _img) :
     img(_img)
 {
-
   // computing Lookup Table of weights for inverse distance transform
   int middle = MAX(img.cols, img.rows);
   int width = middle * 2 + 1;
@@ -43,36 +42,45 @@ Image::Image(cv::Mat _img) :
   }
 }
 
+
 // outputs grayscle CV_8UC1 matrix
 Mat Image::computeEdgeImage()
 {
 
-  Mat grayImg;
+//  Mat grayImg;
   if (this->img.channels() > 1)
   {
-    grayImg = Mat(this->img.size(), CV_8UC1);
-    cvtColor(this->img, grayImg, CV_BGR2GRAY);
+//    grayImg = Mat(this->img.size(), CV_8UC1);
+    cvtColor(this->img, this->img, CV_BGR2GRAY);
   }
-  else
-  {
-    this->img.copyTo(grayImg);
-  }
+//  else
+//  {
+//    this->img.copyTo(grayImg);
+//  }
 
   Mat edges;
-  Mat grad_x, grad_y;
-  Mat abs_grad_x, abs_grad_y;
+  Mat grad_x, grad_y, abs_grad_x, abs_grad_y;
   /// Gradient X
-  Sobel(grayImg, grad_x, CV_16S, 1, 0, 3);
+  Sobel(this->img, grad_x, CV_16S, 1, 0, 3);
   convertScaleAbs(grad_x, abs_grad_x);
 
   /// Gradient Y
-  Sobel(grayImg, grad_y, CV_16S, 0, 1, 3);
+  Sobel(this->img, grad_y, CV_16S, 0, 1, 3);
   convertScaleAbs(grad_y, abs_grad_y);
 
   /// Total Gradient (approximate)
   addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, edges);
+
+#ifdef DEBUG
+	cv::imwrite("grad_x.png", grad_x);
+	cv::imwrite("abs_grad_x.png", abs_grad_x );
+	cv::imwrite("grad_y.png", grad_y);
+	cv::imwrite("abs_grad_y.png", abs_grad_y );
+	cv::imwrite("img_edge.png", edges);
+#endif
   return edges;
 }
+
 
 Mat Image::computeIDTEdgeImage(Mat &edge_img)
 {
@@ -95,7 +103,8 @@ Mat Image::computeIDTEdgeImage(Mat &edge_img)
       for (int x = 0; x < width; x++)
       {
         Mat sub_weights;
-        min(distance_weights(Rect(weights_middle - x, 0, width, 1)), weights.row(row), sub_weights);
+        min(distance_weights(
+         Rect(weights_middle - x, 0, width, 1)), weights.row(row), sub_weights);
 
         Mat edges_row = edges.row(row);
 
@@ -118,21 +127,24 @@ Mat Image::computeIDTEdgeImage(Mat &edge_img)
 
   Mat idt_edge_img = new_edges.mul(new_weights);
 
-  addWeighted(default_edges, alpha, idt_edge_img, (1.0 - alpha), 0.0, idt_edge_img);
+  addWeighted(default_edges, alpha, idt_edge_img, (1.0-alpha),0.0,idt_edge_img);
 
   normalize(idt_edge_img, idt_edge_img, 0.0, 1.0, NORM_MINMAX);
 
   return idt_edge_img;
 }
 
+
 Mat Image::computeIDTEdgeImage()
 {
   Mat edge_img = this->computeEdgeImage();
   Mat grayscale_idt_edge_img;
-  Mat idt_edge_img = this->computeIDTEdgeImage(edge_img).mul(cv::Scalar::all(255.0));
+  Mat idt_edge_img = 
+               this->computeIDTEdgeImage(edge_img).mul(cv::Scalar::all(255.0));
   idt_edge_img.convertTo(grayscale_idt_edge_img, CV_8UC1);
   return grayscale_idt_edge_img;
 }
+
 
 bool order_X(const Vec3f &p1, const Vec3f &p2)
 {
@@ -142,23 +154,30 @@ bool order_Y(const Vec3f &p1, const Vec3f &p2)
 {
   return p1.val[1] < p2.val[1];
 }
-bool Image::detect4Circles(float canny_thresh, float center_thresh, vector<Point2f> &centers, vector<float> &radiuses)
+
+
+bool Image::detect4Circles(float canny_thresh, float center_thresh, 
+                     vector<Point2f> &centers, vector<float> &radiuses)
 {
+  std::cout << "detect4Circles on image............ " << std::endl;
+
   vector<Vec3f> circles;
   radiuses.clear();
   centers.clear();
 
-  Mat src_gray;
-  this->img.copyTo(src_gray);
+//  Mat src_gray;
+//  this->img.copyTo(src_gray);
 
-  for (int thresh = center_thresh; circles.size() < 4 && thresh > 10; thresh -= 5)
+  for(int thresh = center_thresh; circles.size() < 4 && thresh > 10; thresh -= 5)
   {
-    HoughCircles(src_gray, circles, CV_HOUGH_GRADIENT, 1, src_gray.rows / 8, canny_thresh, thresh, 0, 0);
+    HoughCircles(this->img, circles, CV_HOUGH_GRADIENT, 1, this->img.rows / 8,
+                                                    canny_thresh, thresh, 0, 0);
   }
 
   if (circles.size() != 4)
   {
-    return false;
+	  std::cout << "detect4Circles filed: " << circles.size() << std::endl;
+	  return false;
   }
 
   sort(circles.begin(), circles.end(), order_Y);
@@ -172,29 +191,30 @@ bool Image::detect4Circles(float canny_thresh, float center_thresh, vector<Point
   }
 
   /// Draw the circles detected
-  /*
-   Mat src_rgb;
-   cvtColor(img, src_rgb, CV_GRAY2BGR );
-   vector<Scalar> colors;
-   colors.push_back(Scalar(255,0,0));
-   colors.push_back(Scalar(0,255,0));
-   colors.push_back(Scalar(0,0,255));
-   colors.push_back(Scalar(255,255,255));
-   for (size_t i = 0; i < circles.size(); i++) {
-   centers.push_back(Point2f(circles[i][0], circles[i][1]));
+#ifdef DEBUG  
+	cv::Mat src_rgb;
+	cv::cvtColor(this->img, src_rgb, CV_GRAY2BGR );
+	vector<Scalar> colors;
+	colors.push_back(Scalar(255,0,0));
+	colors.push_back(Scalar(0,255,0));
+	colors.push_back(Scalar(0,0,255));
+	colors.push_back(Scalar(255,255,255));
+	
+	for (size_t i = 0; i < circles.size(); i++)
+	{
+		cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+		int radius = cvRound(circles[i][2]);
 
-   Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-   int radius = cvRound(circles[i][2]);
-   // circle center
-   circle(src_rgb, center, 3, Scalar(0, 255, 0), -1, 8, 0);
-   // circle outline
-   circle(src_rgb, center, radius, colors[i], 3, 8, 0);
-   cerr << i+1 << ". circle S("<<center.x<<","<<center.y<<"); r="<<radius << endl;
+		// circle center
+		cv::circle(src_rgb, center, 3, Scalar(0, 255, 0), -1, 8, 0);
+	
+		// circle outline
+		cv::circle(src_rgb, center, radius, colors[i], 3, 8, 0);
+		std::cout << "circle" << i+1 << ": (" 
+				  << center.x << "," << center.y<< "); r = " << radius << endl;
    }
-   namedWindow("Hough Circle Transform Demo", CV_WINDOW_AUTOSIZE);
-   imshow("Hough Circle Transform Demo", src_rgb);
-   waitKey(0);
-   */
+	cv::imwrite("Hough_Circle.png", src_rgb);
+#endif
 
   return true;
 }
@@ -210,13 +230,14 @@ Mat Image::segmentation(int segment_count)
   {
     src_gray = img;
   }
-  src_gray = src_gray.reshape(src_gray.channels(), src_gray.rows * src_gray.cols); // to single row
+  src_gray = src_gray.reshape(src_gray.channels(),
+                              src_gray.rows * src_gray.cols); // to single row
 
   Mat segmentation;
-  adaptiveThreshold(img, segmentation, 1, CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY, 401, 2);
+  adaptiveThreshold(img, segmentation, 1, 
+                     CV_ADAPTIVE_THRESH_GAUSSIAN_C, CV_THRESH_BINARY, 401, 2);
   return segmentation;
 }
 
 }/* NAMESPACE Image */
 
-}
